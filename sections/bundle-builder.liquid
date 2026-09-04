@@ -1,0 +1,178 @@
+<script type="module" src="{{ 'bundle-builder.js' | asset_url }}" fetchpriority="low"></script>
+
+{% liquid
+  assign bundle_collection = section.settings.collection
+  assign tier_maximum = 1
+  if section.settings.background_color != blank
+    render 'contrast-override', background_color: section.settings.background_color, section_id: section.id
+  endif
+  for block in section.blocks
+    if block.settings.quantity > tier_maximum
+      assign tier_maximum = block.settings.quantity
+    endif
+  endfor
+%}
+
+<div class="section-background{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"></div>
+<bundle-builder
+  id="BundleBuilder-{{ section.id }}"
+  class="bundle-builder section section--page-width{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %} spacing-style"
+  data-bundle-name="{{ section.settings.heading | escape }}"
+  style="{% render 'spacing-style', settings: section.settings %}"
+>
+  <header class="bundle-builder__header">
+    {% if section.settings.eyebrow != blank %}<p class="bundle-builder__eyebrow">{{ section.settings.eyebrow | escape }}</p>{% endif %}
+    <h2 class="bundle-builder__heading">{{ section.settings.heading | escape }}</h2>
+    {% if section.settings.description != blank %}<div class="bundle-builder__description rte">{{ section.settings.description }}</div>{% endif %}
+  </header>
+
+  <form class="bundle-builder__layout" data-bundle-form>
+    <div class="bundle-builder__products" role="group" aria-label="Products available for this bundle">
+      {% if bundle_collection != blank and bundle_collection.products_count > 0 %}
+        {% for product in bundle_collection.products limit: section.settings.product_limit %}
+          {% assign selected_variant = product.selected_or_first_available_variant %}
+          <article class="bundle-product" data-bundle-product>
+            <label class="bundle-product__select">
+              <input type="checkbox" data-product-toggle {% unless selected_variant.available %}disabled{% endunless %}>
+              <span class="bundle-product__check" aria-hidden="true">✓</span>
+              <span class="visually-hidden">Select {{ product.title | escape }}</span>
+            </label>
+            <div class="bundle-product__media">
+              {% if product.featured_image %}
+                {{ product.featured_image | image_url: width: 600 | image_tag: loading: 'lazy', widths: '240, 360, 480, 600', sizes: '(min-width: 990px) 25vw, 50vw', alt: product.featured_image.alt | default: product.title }}
+              {% else %}
+                {{ 'product-apparel-1' | placeholder_svg_tag: 'placeholder-svg' }}
+              {% endif %}
+            </div>
+            <div class="bundle-product__content">
+              <h3 class="bundle-product__title">{{ product.title | escape }}</h3>
+              <p class="bundle-product__price">{{ selected_variant.price | money }}</p>
+              {% if product.has_only_default_variant %}
+                <input type="hidden" data-variant-select value="{{ selected_variant.id }}">
+              {% else %}
+                <label class="bundle-product__variant-label" for="BundleVariant-{{ section.id }}-{{ product.id }}">Option</label>
+                <select id="BundleVariant-{{ section.id }}-{{ product.id }}" class="bundle-product__variant" data-variant-select>
+                  {% for variant in product.variants %}
+                    <option value="{{ variant.id }}" {% unless variant.available %}disabled{% endunless %} {% if variant.id == selected_variant.id %}selected{% endif %}>
+                      {{ variant.title | escape }} — {{ variant.price | money }}{% unless variant.available %} (Sold out){% endunless %}
+                    </option>
+                  {% endfor %}
+                </select>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="bundle-builder__empty">Choose a collection in the theme editor to show bundle products.</div>
+      {% endif %}
+    </div>
+
+    <aside class="bundle-progress" aria-label="Bundle progress">
+      <p class="bundle-progress__eyebrow">Your bundle</p>
+      <h3 class="bundle-progress__title"><span data-bundle-count>0</span> items selected</h3>
+      <div class="bundle-progress__track" data-bundle-progress role="progressbar" aria-valuemin="0" aria-valuemax="{{ tier_maximum }}" aria-valuenow="0">
+        <span class="bundle-progress__fill"></span>
+      </div>
+      <div class="bundle-progress__tiers">
+        {% for block in section.blocks %}
+          <div class="bundle-tier" data-tier="{{ block.settings.quantity }}" data-label="{{ block.settings.reward | escape }}" {{ block.shopify_attributes }}>
+            <span class="bundle-tier__icon" aria-hidden="true">{{ block.settings.icon }}</span>
+            <span><strong>{{ block.settings.quantity }} items</strong><small>{{ block.settings.reward | escape }}</small></span>
+          </div>
+        {% endfor %}
+      </div>
+      <button class="button button--primary bundle-progress__button" type="submit" data-bundle-submit disabled>
+        {{ section.settings.button_label | escape }}
+      </button>
+      <p class="bundle-progress__status" data-bundle-status role="status" aria-live="polite"></p>
+    </aside>
+  </form>
+</bundle-builder>
+
+{% stylesheet %}
+  .bundle-builder__header { max-width: 720px; margin-block-end: 32px; }
+  .bundle-builder__eyebrow, .bundle-progress__eyebrow { margin: 0 0 8px; text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; font-weight: 700; opacity: .7; }
+  .bundle-builder__heading { margin: 0; font-size: clamp(2rem, 4vw, 4rem); line-height: 1; }
+  .bundle-builder__description { margin-block-start: 16px; max-width: 58ch; opacity: .72; }
+  .bundle-builder__layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: clamp(28px, 5vw, 72px); align-items: start; }
+  .bundle-builder__products { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .bundle-product { position: relative; overflow: hidden; border: 1px solid rgb(var(--color-foreground-rgb) / .14); border-radius: 16px; background: var(--color-background); transition: border-color .2s ease, transform .2s ease; }
+  .bundle-product[data-selected] { border-color: var(--color-foreground); transform: translateY(-2px); }
+  .bundle-product__select { position: absolute; z-index: 2; inset: 12px 12px auto auto; display: grid; width: 34px; height: 34px; cursor: pointer; }
+  .bundle-product__select input { position: absolute; opacity: 0; }
+  .bundle-product__check { display: grid; place-items: center; border-radius: 50%; color: var(--color-background); background: rgb(var(--color-background-rgb) / .9); border: 1px solid rgb(var(--color-foreground-rgb) / .25); transition: .2s ease; }
+  .bundle-product__select input:checked + .bundle-product__check { color: var(--color-background); background: var(--color-foreground); border-color: var(--color-foreground); }
+  .bundle-product__select input:focus-visible + .bundle-product__check { outline: 2px solid var(--color-foreground); outline-offset: 3px; }
+  .bundle-product__media { aspect-ratio: 1; background: rgb(var(--color-foreground-rgb) / .04); }
+  .bundle-product__media img, .bundle-product__media svg { width: 100%; height: 100%; object-fit: cover; }
+  .bundle-product__content { padding: 16px; }
+  .bundle-product__title { margin: 0; font-size: 1rem; }
+  .bundle-product__price { margin: 6px 0 0; opacity: .72; }
+  .bundle-product__variant-label { display: block; margin-block-start: 14px; font-size: .75rem; opacity: .7; }
+  .bundle-product__variant { width: 100%; margin-block-start: 5px; padding: 9px 30px 9px 10px; border: 1px solid rgb(var(--color-foreground-rgb) / .2); border-radius: 8px; color: inherit; background: var(--color-background); }
+  .bundle-progress { position: sticky; top: calc(var(--header-height, 0px) + 24px); padding: clamp(24px, 4vw, 38px); border-radius: 20px; color: var(--color-background); background: var(--color-foreground); }
+  .bundle-progress__title { margin: 0 0 22px; font-size: 1.45rem; }
+  .bundle-progress__track { height: 8px; overflow: hidden; border-radius: 999px; background: rgb(var(--color-background-rgb) / .22); }
+  .bundle-progress__fill { display: block; width: var(--bundle-progress); height: 100%; border-radius: inherit; background: var(--color-background); transition: width .35s ease; }
+  .bundle-progress__tiers { display: grid; gap: 0; margin-block: 20px 28px; }
+  .bundle-tier { display: flex; gap: 12px; align-items: center; padding-block: 13px; border-bottom: 1px solid rgb(var(--color-background-rgb) / .18); opacity: .48; transition: opacity .25s ease; }
+  .bundle-tier[data-unlocked] { opacity: 1; }
+  .bundle-tier__icon { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 50%; background: rgb(var(--color-background-rgb) / .12); }
+  .bundle-tier[data-unlocked] .bundle-tier__icon { color: var(--color-foreground); background: var(--color-background); }
+  .bundle-tier strong, .bundle-tier small { display: block; }
+  .bundle-tier small { margin-block-start: 2px; opacity: .78; }
+  .bundle-progress__button { width: 100%; color: var(--color-foreground); background: var(--color-background); }
+  .bundle-progress__button[disabled] { opacity: .48; cursor: not-allowed; }
+  .bundle-progress__status { min-height: 1.4em; margin: 12px 0 0; font-size: .85rem; text-align: center; }
+  .bundle-progress__status[data-error] { color: #ffb4ab; }
+  .bundle-builder__empty { grid-column: 1 / -1; padding: 40px; border: 1px dashed currentColor; border-radius: 12px; text-align: center; }
+  @media (max-width: 749px) {
+    .bundle-builder__layout { grid-template-columns: 1fr; }
+    .bundle-builder__products { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .bundle-progress { position: static; }
+    .bundle-product__content { padding: 12px; }
+  }
+  @media (max-width: 420px) { .bundle-builder__products { grid-template-columns: 1fr; } }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Bundle builder",
+  "tag": "section",
+  "class": "bundle-builder-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Build more, save more" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Create your perfect bundle" },
+    { "type": "richtext", "id": "description", "label": "Description", "default": "<p>Choose your favorites and unlock a new reward at every tier.</p>" },
+    { "type": "collection", "id": "collection", "label": "Products" },
+    { "type": "range", "id": "product_limit", "label": "Maximum products", "min": 2, "max": 20, "step": 1, "default": 8 },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Add bundle to cart" },
+    { "type": "color", "id": "background_color", "label": "Background color", "default": "{{ settings.color_palette.background }}" },
+    { "type": "range", "id": "padding-block-start", "label": "Top spacing", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding-block-end", "label": "Bottom spacing", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    {
+      "type": "tier",
+      "name": "Reward tier",
+      "limit": 4,
+      "settings": [
+        { "type": "range", "id": "quantity", "label": "Items required", "min": 1, "max": 12, "step": 1, "default": 2 },
+        { "type": "text", "id": "reward", "label": "Reward", "default": "Unlock a special reward" },
+        { "type": "text", "id": "icon", "label": "Icon", "default": "✦" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Bundle builder",
+      "blocks": [
+        { "type": "tier", "settings": { "quantity": 2, "reward": "Save 10%", "icon": "10%" } },
+        { "type": "tier", "settings": { "quantity": 3, "reward": "Save 15%", "icon": "15%" } },
+        { "type": "tier", "settings": { "quantity": 4, "reward": "Free shipping", "icon": "✦" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

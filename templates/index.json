@@ -91,6 +91,26 @@
         "padding-block-end": 72
       }
     },
+    "bundle_builder_home": {
+      "type": "bundle-builder",
+      "blocks": {
+        "tier_2": { "type": "tier", "settings": { "quantity": 2, "reward": "Save 10%", "icon": "10%" } },
+        "tier_3": { "type": "tier", "settings": { "quantity": 3, "reward": "Save 15%", "icon": "15%" } },
+        "tier_4": { "type": "tier", "settings": { "quantity": 4, "reward": "Free shipping", "icon": "✦" } }
+      },
+      "block_order": ["tier_2", "tier_3", "tier_4"],
+      "settings": {
+        "eyebrow": "Build more, save more",
+        "heading": "Create your perfect bundle",
+        "description": "<p>Choose your favorites and unlock a new reward at every tier.</p>",
+        "collection": "all",
+        "product_limit": 8,
+        "button_label": "Add bundle to cart",
+        "background_color": "{{ settings.color_palette.background }}",
+        "padding-block-start": 64,
+        "padding-block-end": 64
+      }
+    },
     "product_list_fa6P9H": {
       "type": "product-list",
       "blocks": {
@@ -280,6 +300,7 @@
   },
   "order": [
     "hero_jVaWmY",
+    "bundle_builder_home",
     "product_list_fa6P9H"
   ]
 }
